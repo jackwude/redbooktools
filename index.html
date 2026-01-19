@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="小红书舆情分析工具 - 上传截图，智能分析舆情报告">
+    <title>小红书舆情分析工具</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* CSS 变量定义 */
+        :root {
+            --color-primary: #FF2442;
+            --color-primary-light: #FF6B81;
+            --color-primary-dark: #E01E3C;
+            --color-bg-dark: #0F0F12;
+            --color-bg-card: #1A1A1F;
+            --color-bg-elevated: #222228;
+            --color-bg-hover: #2A2A32;
+            --color-text-primary: #FFFFFF;
+            --color-text-secondary: #9CA3AF;
+            --color-text-muted: #6B7280;
+            --color-positive: #22C55E;
+            --color-negative: #EF4444;
+            --color-neutral: #3B82F6;
+            --color-warning: #F59E0B;
+            --color-border: rgba(255, 255, 255, 0.08);
+            --color-border-hover: rgba(255, 255, 255, 0.15);
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.5);
+            --shadow-glow: 0 0 30px rgba(255, 36, 66, 0.3);
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 24px;
+            --transition-fast: 0.15s ease;
+            --transition-normal: 0.3s ease;
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            font-size: 16px;
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background: var(--color-bg-dark);
+            color: var(--color-text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background:
+                radial-gradient(ellipse at 20% 0%, rgba(255, 36, 66, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 100%, rgba(255, 107, 129, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .app-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            min-height: 100vh;
+        }
+
+        .app-header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem 0;
+        }
+
+        .app-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .app-logo-icon {
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.75rem;
+            box-shadow: var(--shadow-glow);
+        }
+
+        .app-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .app-subtitle {
+            color: var(--color-text-secondary);
+            font-size: 1.1rem;
+            margin-top: 0.5rem;
+        }
+
+        .card {
+            background: var(--color-bg-card);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            transition: all var(--transition-normal);
+            margin-bottom: 1.5rem;
+        }
+
+        .card:hover {
+            border-color: var(--color-border-hover);
+            box-shadow: var(--shadow-md);
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .upload-zone {
+            border: 2px dashed var(--color-border);
+            border-radius: var(--radius-lg);
+            padding: 3rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all var(--transition-normal);
+            background: rgba(255, 36, 66, 0.02);
+        }
+
+        .upload-zone:hover,
+        .upload-zone.drag-over {
+            border-color: var(--color-primary);
+            background: rgba(255, 36, 66, 0.08);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .upload-zone-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.8;
+        }
+
+        .upload-zone-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .upload-zone-hint {
+            color: var(--color-text-muted);
+            font-size: 0.9rem;
+        }
+
+        .upload-preview {
+            margin-top: 1.5rem;
+            position: relative;
+            text-align: center;
+        }
+
+        .upload-preview img {
+            max-width: 100%;
+            max-height: 400px;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-md);
+        }
+
+        .upload-preview-remove {
+            position: absolute;
+            top: -0.5rem;
+            right: 50%;
+            transform: translateX(50%);
+            width: 2rem;
+            height: 2rem;
+            background: var(--color-negative);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform var(--transition-fast);
+        }
+
+        .upload-preview-remove:hover {
+            transform: translateX(50%) scale(1.1);
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            font-size: 1rem;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            background: var(--color-bg-elevated);
+            color: var(--color-text-primary);
+            outline: none;
+            transition: border-color var(--transition-fast);
+        }
+
+        .input-field:focus {
+            border-color: var(--color-primary);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.875rem 1.75rem;
+            font-size: 1rem;
+            font-weight: 600;
+            border: none;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
+            color: white;
+            box-shadow: 0 4px 20px rgba(255, 36, 66, 0.3);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 30px rgba(255, 36, 66, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: var(--color-bg-elevated);
+            color: var(--color-text-primary);
+            border: 1px solid var(--color-border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--color-bg-hover);
+            border-color: var(--color-border-hover);
+        }
+
+        .btn-center {
+            display: flex;
+            justify-content: center;
+            margin-top: 1.5rem;
+        }
+
+        .progress-container {
+            margin: 2rem 0;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: var(--color-bg-elevated);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--color-primary), var(--color-primary-light));
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+
+        .progress-status {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-top: 1rem;
+            color: var(--color-text-secondary);
+        }
+
+        .progress-spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--color-border);
+            border-top-color: var(--color-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* 报告样式 */
+        .report-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-value.positive {
+            color: var(--color-positive);
+        }
+
+        .stat-value.negative {
+            color: var(--color-negative);
+        }
+
+        .stat-value.neutral {
+            color: var(--color-neutral);
+        }
+
+        .stat-label {
+            color: var(--color-text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .keyword-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            padding: 0.5rem 0;
+        }
+
+        .keyword-tag {
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius-xl);
+            font-size: 0.875rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .keyword-tag.positive {
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--color-positive);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+
+        .keyword-tag.negative {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--color-negative);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .keyword-tag.neutral {
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--color-neutral);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        .keyword-count {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 0.125rem 0.5rem;
+            border-radius: var(--radius-sm);
+            font-size: 0.75rem;
+        }
+
+        .alert-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .alert-item {
+            padding: 1rem 1.25rem;
+            border-radius: var(--radius-md);
+            display: flex;
+            gap: 1rem;
+            align-items: flex-start;
+        }
+
+        .alert-item.high {
+            background: rgba(239, 68, 68, 0.1);
+            border-left: 4px solid var(--color-negative);
+        }
+
+        .alert-item.medium {
+            background: rgba(245, 158, 11, 0.1);
+            border-left: 4px solid var(--color-warning);
+        }
+
+        .alert-item.low {
+            background: rgba(59, 130, 246, 0.1);
+            border-left: 4px solid var(--color-neutral);
+        }
+
+        .alert-icon {
+            font-size: 1.25rem;
+            flex-shrink: 0;
+        }
+
+        .alert-content {
+            flex: 1;
+        }
+
+        .alert-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .alert-desc {
+            color: var(--color-text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .post-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .post-item {
+            padding: 1.25rem;
+            border-radius: var(--radius-md);
+            background: var(--color-bg-elevated);
+            border: 1px solid var(--color-border);
+            transition: all var(--transition-fast);
+        }
+
+        .post-item:hover {
+            border-color: var(--color-border-hover);
+            transform: translateX(4px);
+        }
+
+        .post-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.75rem;
+        }
+
+        .post-title {
+            font-weight: 600;
+            flex: 1;
+            margin-right: 1rem;
+        }
+
+        .post-sentiment {
+            padding: 0.25rem 0.75rem;
+            border-radius: var(--radius-sm);
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .post-sentiment.positive {
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--color-positive);
+        }
+
+        .post-sentiment.negative {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--color-negative);
+        }
+
+        .post-sentiment.neutral {
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--color-neutral);
+        }
+
+        .post-content {
+            color: var(--color-text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .post-meta {
+            display: flex;
+            gap: 1.5rem;
+            color: var(--color-text-muted);
+            font-size: 0.8rem;
+        }
+
+        .insight-list,
+        .recommendation-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .insight-item,
+        .recommendation-item {
+            display: flex;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            background: var(--color-bg-elevated);
+            border-radius: var(--radius-md);
+        }
+
+        .insight-icon,
+        .recommendation-icon {
+            flex-shrink: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-size: 0.875rem;
+        }
+
+        .insight-icon {
+            background: rgba(255, 36, 66, 0.1);
+            color: var(--color-primary);
+        }
+
+        .recommendation-icon {
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--color-positive);
+        }
+
+        .summary-card {
+            background: linear-gradient(135deg, rgba(255, 36, 66, 0.05), rgba(255, 107, 129, 0.05));
+            border: 1px solid rgba(255, 36, 66, 0.2);
+            padding: 2rem;
+        }
+
+        .summary-text {
+            font-size: 1.1rem;
+            line-height: 1.8;
+            color: var(--color-text-primary);
+        }
+
+        .chart-container {
+            height: 300px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 3rem;
+            padding: 1rem;
+        }
+
+        .pie-chart {
+            position: relative;
+            width: 200px;
+            height: 200px;
+        }
+
+        .pie-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .pie-center-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .pie-center-label {
+            font-size: 0.75rem;
+            color: var(--color-text-muted);
+        }
+
+        .chart-legend {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+
+        .error-card {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+
+        .error-text {
+            color: var(--color-negative);
+            margin: 0;
+        }
+
+        footer {
+            margin-top: 4rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--color-border);
+            text-align: center;
+            color: var(--color-text-muted);
+            font-size: 0.875rem;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        @media (max-width: 768px) {
+            .app-container {
+                padding: 1rem;
+            }
+
+            .app-title {
+                font-size: 1.75rem;
+            }
+
+            .report-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .upload-zone {
+                padding: 2rem 1rem;
+            }
+
+            .chart-container {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- 头部 -->
+        <header class="app-header">
+            <div class="app-logo">
+                <div class="app-logo-icon">📊</div>
+                <h1 class="app-title">小红书舆情分析工具</h1>
+            </div>
+            <p class="app-subtitle">上传小红书截图，智能识别内容并生成专业舆情分析报告</p>
+        </header>
+
+        <!-- 主内容区 -->
+        <main>
+            <!-- 上传区域 -->
+            <div class="card">
+                <h3 class="card-title">📤 上传小红书截图</h3>
+                <div class="upload-zone" id="uploadZone">
+                    <input type="file" id="fileInput" accept="image/png,image/jpeg,image/jpg,image/webp"
+                        style="display: none;">
+                    <div id="uploadPlaceholder">
+                        <div class="upload-zone-icon">📷</div>
+                        <div class="upload-zone-title">拖拽或点击上传截图</div>
+                        <div class="upload-zone-hint">支持 PNG、JPG、WebP 格式，最大 10MB</div>
+                    </div>
+                    <div id="uploadPreview" class="upload-preview hidden">
+                        <img id="previewImage" src="" alt="预览">
+                        <button class="upload-preview-remove" id="removeBtn" title="移除图片">✕</button>
+                        <p id="fileName" style="margin-top: 1rem; color: var(--color-text-secondary);"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 搜索关键词 -->
+            <div class="card">
+                <h3 class="card-title">🔍 搜索关键词（可选）</h3>
+                <input type="text" id="searchKeyword" class="input-field" placeholder="输入关键词可帮助优化分析结果...">
+            </div>
+
+            <!-- 分析按钮 -->
+            <div class="btn-center">
+                <button class="btn btn-primary" id="analyzeBtn" disabled>✨ 开始分析</button>
+                <button class="btn btn-secondary hidden" id="resetBtn">🔄 重新分析</button>
+            </div>
+
+            <!-- 进度指示器 -->
+            <div class="progress-container hidden" id="progressContainer">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                </div>
+                <div class="progress-status">
+                    <div class="progress-spinner" id="progressSpinner"></div>
+                    <span id="progressText">准备中...</span>
+                </div>
+            </div>
+
+            <!-- 错误提示 -->
+            <div class="card error-card hidden fade-in" id="errorCard">
+                <p class="error-text" id="errorText">❌ 分析过程中发生错误，请重试</p>
+            </div>
+
+            <!-- 分析报告 -->
+            <div id="reportSection" class="hidden fade-in"></div>
+        </main>
+
+        <!-- 页脚 -->
+        <footer>
+            <p>小红书舆情分析工具 © 2026 | 基于豆包 AI 多模态能力驱动</p>
+        </footer>
+    </div>
+
+    <script>
+        // DOM 元素
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+        const uploadPreview = document.getElementById('uploadPreview');
+        const previewImage = document.getElementById('previewImage');
+        const removeBtn = document.getElementById('removeBtn');
+        const fileName = document.getElementById('fileName');
+        const searchKeyword = document.getElementById('searchKeyword');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressFill = document.getElementById('progressFill');
+        const progressSpinner = document.getElementById('progressSpinner');
+        const progressText = document.getElementById('progressText');
+        const errorCard = document.getElementById('errorCard');
+        const errorText = document.getElementById('errorText');
+        const reportSection = document.getElementById('reportSection');
+
+        let selectedFile = null;
+
+        // 上传区域点击
+        uploadZone.addEventListener('click', (e) => {
+            if (e.target !== removeBtn && !selectedFile) {
+                fileInput.click();
+            }
+        });
+
+        // 拖拽事件
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('drag-over');
+        });
+        uploadZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('drag-over');
+        });
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('drag-over');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) handleFile(files[0]);
+        });
+
+        // 文件选择
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) handleFile(e.target.files[0]);
+        });
+
+        // 处理文件
+        function handleFile(file) {
+            const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+            if (!validTypes.includes(file.type)) {
+                alert('请上传 PNG、JPG 或 WebP 格式的图片');
+                return;
+            }
+            if (file.size > 10 * 1024 * 1024) {
+                alert('图片大小不能超过 10MB');
+                return;
+            }
+            selectedFile = file;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImage.src = e.target.result;
+                fileName.textContent = file.name;
+                uploadPlaceholder.classList.add('hidden');
+                uploadPreview.classList.remove('hidden');
+                analyzeBtn.disabled = false;
+            };
+            reader.readAsDataURL(file);
+            reportSection.classList.add('hidden');
+            errorCard.classList.add('hidden');
+        }
+
+        // 移除文件
+        removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            clearFile();
+        });
+
+        function clearFile() {
+            selectedFile = null;
+            fileInput.value = '';
+            uploadPlaceholder.classList.remove('hidden');
+            uploadPreview.classList.add('hidden');
+            analyzeBtn.disabled = true;
+        }
+
+        // 开始分析
+        analyzeBtn.addEventListener('click', analyze);
+
+        async function analyze() {
+            if (!selectedFile) return;
+
+            // 显示进度
+            progressContainer.classList.remove('hidden');
+            errorCard.classList.add('hidden');
+            reportSection.classList.add('hidden');
+            analyzeBtn.disabled = true;
+            progressFill.style.width = '20%';
+            progressText.textContent = '正在上传图片...';
+
+            try {
+                // 构建 FormData
+                const formData = new FormData();
+                formData.append('image', selectedFile);
+                if (searchKeyword.value.trim()) {
+                    formData.append('search_keyword', searchKeyword.value.trim());
+                }
+
+                progressFill.style.width = '40%';
+                progressText.textContent = '正在分析舆情数据...';
+
+                // 发送请求
+                const response = await fetch('http://localhost:8000/api/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                progressFill.style.width = '80%';
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || '分析请求失败');
+                }
+
+                const result = await response.json();
+                progressFill.style.width = '100%';
+                progressText.textContent = '分析完成！';
+                progressSpinner.style.display = 'none';
+
+                if (result.success && result.data) {
+                    setTimeout(() => {
+                        progressContainer.classList.add('hidden');
+                        renderReport(result.data);
+                        analyzeBtn.classList.add('hidden');
+                        resetBtn.classList.remove('hidden');
+                    }, 500);
+                } else {
+                    throw new Error(result.message || '分析失败');
+                }
+
+            } catch (error) {
+                console.error('分析失败:', error);
+                progressContainer.classList.add('hidden');
+                errorText.textContent = '❌ ' + error.message;
+                errorCard.classList.remove('hidden');
+                analyzeBtn.disabled = false;
+            }
+        }
+
+        // 重新分析
+        resetBtn.addEventListener('click', () => {
+            clearFile();
+            searchKeyword.value = '';
+            reportSection.classList.add('hidden');
+            resetBtn.classList.add('hidden');
+            analyzeBtn.classList.remove('hidden');
+            progressSpinner.style.display = 'block';
+            progressFill.style.width = '0%';
+        });
+
+        // 渲染报告
+        function renderReport(report) {
+            const sentimentLabels = { positive: '正面', negative: '负面', neutral: '中性' };
+            const dist = report.sentiment_distribution;
+
+            // 生成饼图 SVG
+            const pieData = [
+                { ratio: dist.positive_ratio, color: '#22C55E', label: '正面', count: dist.positive_count },
+                { ratio: dist.neutral_ratio, color: '#3B82F6', label: '中性', count: dist.neutral_count },
+                { ratio: dist.negative_ratio, color: '#EF4444', label: '负面', count: dist.negative_count }
+            ];
+
+            let offset = 0;
+            const pieSlices = pieData.map(item => {
+                const dashArray = item.ratio * 100;
+                const slice = `<circle cx="50" cy="50" r="40" fill="none" stroke="${item.color}" stroke-width="20" stroke-dasharray="${dashArray} ${100 - dashArray}" stroke-dashoffset="-${offset}" style="transition: all 0.5s ease"/>`;
+                offset += dashArray;
+                return slice;
+            }).join('');
+
+            const legendItems = pieData.map(item => `
+                <div class="legend-item">
+                    <div class="legend-color" style="background: ${item.color}"></div>
+                    <span>${item.label}</span>
+                    <span style="color: var(--color-text-muted); margin-left: auto;">${item.count} (${(item.ratio * 100).toFixed(1)}%)</span>
+                </div>
+            `).join('');
+
+            // 关键词
+            const keywordsHtml = report.top_keywords.map(kw => `
+                <span class="keyword-tag ${kw.sentiment}">${kw.word}<span class="keyword-count">${kw.count}</span></span>
+            `).join('') || '<p style="color: var(--color-text-muted)">暂无关键词数据</p>';
+
+            // 风险预警
+            const alertIcons = { high: '🔴', medium: '🟡', low: '🔵' };
+            const alertLabels = { high: '高风险', medium: '中风险', low: '低风险' };
+            const alertsHtml = report.risk_alerts.length > 0 ? report.risk_alerts.map(alert => `
+                <div class="alert-item ${alert.level}">
+                    <span class="alert-icon">${alertIcons[alert.level]}</span>
+                    <div class="alert-content">
+                        <div class="alert-title">${alertLabels[alert.level]}</div>
+                        <div class="alert-desc">${alert.description}</div>
+                    </div>
+                </div>
+            `).join('') : '<p style="color: var(--color-text-muted)">暂无风险预警</p>';
+
+            // 洞察和建议
+            const insightsHtml = report.insights.map(i => `
+                <div class="insight-item"><div class="insight-icon">💡</div><span>${i}</span></div>
+            `).join('');
+            const recsHtml = report.recommendations.map(r => `
+                <div class="recommendation-item"><div class="recommendation-icon">✓</div><span>${r}</span></div>
+            `).join('');
+
+            // 帖子列表
+            const postsHtml = report.posts.map(post => `
+                <div class="post-item">
+                    <div class="post-header">
+                        <div class="post-title">${post.title}</div>
+                        <span class="post-sentiment ${post.sentiment}">${sentimentLabels[post.sentiment]}</span>
+                    </div>
+                    ${post.content ? `<div class="post-content">${post.content}</div>` : ''}
+                    <div class="post-meta">
+                        ${post.author ? `<span>👤 ${post.author}</span>` : ''}
+                        ${post.likes !== null ? `<span>❤️ ${post.likes}</span>` : ''}
+                        ${post.comments !== null ? `<span>💬 ${post.comments}</span>` : ''}
+                        ${post.keywords.length > 0 ? `<span>🏷️ ${post.keywords.slice(0, 3).join(', ')}</span>` : ''}
+                    </div>
+                </div>
+            `).join('');
+
+            // 完整报告
+            reportSection.innerHTML = `
+                <div class="card summary-card" style="margin-bottom: 2rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+                        <div>
+                            <h2 style="font-size: 1.5rem; margin-bottom: 0.5rem;">📊 舆情分析报告</h2>
+                            ${report.search_keyword ? `<p style="color: var(--color-text-secondary);">关键词：<strong>${report.search_keyword}</strong></p>` : ''}
+                        </div>
+                        <div style="text-align: right; color: var(--color-text-muted); font-size: 0.875rem;">
+                            <div>报告 ID: ${report.analysis_id}</div>
+                            <div>${new Date(report.created_at).toLocaleString('zh-CN')}</div>
+                        </div>
+                    </div>
+                    <p class="summary-text">${report.summary}</p>
+                </div>
+
+                <div class="report-grid">
+                    <div class="card stat-card">
+                        <div class="stat-value">${report.total_posts}</div>
+                        <div class="stat-label">识别帖子数</div>
+                    </div>
+                    <div class="card stat-card">
+                        <div class="stat-value positive">${(dist.positive_ratio * 100).toFixed(1)}%</div>
+                        <div class="stat-label">正面情感占比</div>
+                    </div>
+                    <div class="card stat-card">
+                        <div class="stat-value negative">${(dist.negative_ratio * 100).toFixed(1)}%</div>
+                        <div class="stat-label">负面情感占比</div>
+                    </div>
+                    <div class="card stat-card">
+                        <div class="stat-value neutral">${(dist.neutral_ratio * 100).toFixed(1)}%</div>
+                        <div class="stat-label">中性情感占比</div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom: 1.5rem;">
+                    <h3 class="card-title">📈 情感分布</h3>
+                    <div class="chart-container">
+                        <div class="pie-chart">
+                            <svg viewBox="0 0 100 100" style="transform: rotate(-90deg);">${pieSlices}</svg>
+                            <div class="pie-center">
+                                <div class="pie-center-value">${report.total_posts}</div>
+                                <div class="pie-center-label">帖子</div>
+                            </div>
+                        </div>
+                        <div class="chart-legend">${legendItems}</div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom: 1.5rem;">
+                    <h3 class="card-title">🔥 热门关键词</h3>
+                    <div class="keyword-list">${keywordsHtml}</div>
+                </div>
+
+                ${report.risk_alerts.length > 0 ? `
+                <div class="card" style="margin-bottom: 1.5rem;">
+                    <h3 class="card-title">⚠️ 风险预警</h3>
+                    <div class="alert-list">${alertsHtml}</div>
+                </div>
+                ` : ''}
+
+                <div class="report-grid">
+                    <div class="card">
+                        <h3 class="card-title">💡 关键洞察</h3>
+                        <div class="insight-list">${insightsHtml}</div>
+                    </div>
+                    <div class="card">
+                        <h3 class="card-title">✅ 建议措施</h3>
+                        <div class="recommendation-list">${recsHtml}</div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 1.5rem;">
+                    <h3 class="card-title">📝 帖子详情</h3>
+                    <div class="post-list">${postsHtml}</div>
+                </div>
+            `;
+            reportSection.classList.remove('hidden');
+        }
+    </script>
+</body>
+
+</html>
