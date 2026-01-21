@@ -313,9 +313,21 @@
             border-color: var(--color-border-hover);
         }
 
+        .btn-success {
+            background: linear-gradient(135deg, var(--color-positive), #16A34A);
+            color: white;
+            box-shadow: 0 4px 20px rgba(34, 197, 94, 0.3);
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 30px rgba(34, 197, 94, 0.4);
+        }
+
         .btn-center {
             display: flex;
             justify-content: center;
+            gap: 1rem;
             margin-top: 1.5rem;
         }
 
@@ -759,6 +771,7 @@
             <div class="btn-center">
                 <button class="btn btn-primary" id="analyzeBtn" disabled>✨ 开始分析</button>
                 <button class="btn btn-secondary hidden" id="resetBtn">🔄 重新分析</button>
+                <button class="btn btn-success hidden" id="exportBtn">📥 导出 Excel</button>
             </div>
 
             <!-- 进度指示器 -->
@@ -799,6 +812,7 @@
         const searchKeyword = document.getElementById('searchKeyword');
         const analyzeBtn = document.getElementById('analyzeBtn');
         const resetBtn = document.getElementById('resetBtn');
+        const exportBtn = document.getElementById('exportBtn');
         const progressContainer = document.getElementById('progressContainer');
         const progressFill = document.getElementById('progressFill');
         const progressSpinner = document.getElementById('progressSpinner');
@@ -809,6 +823,7 @@
 
         let selectedFiles = []; // 改为数组
         const MAX_FILES = 10;
+        let currentReportData = null; // 保存当前报告数据用于导出
 
         // 上传区域点击
         uploadZone.addEventListener('click', (e) => {
@@ -990,11 +1005,15 @@
                 progressSpinner.style.display = 'none';
 
                 if (result.success && result.data) {
+                    // 保存报告数据
+                    currentReportData = result.data;
+
                     setTimeout(() => {
                         progressContainer.classList.add('hidden');
                         renderReport(result.data);
                         analyzeBtn.classList.add('hidden');
                         resetBtn.classList.remove('hidden');
+                        exportBtn.classList.remove('hidden'); // 显示导出按钮
                     }, 500);
                 } else {
                     throw new Error(result.message || '分析失败');
@@ -1015,9 +1034,70 @@
             searchKeyword.value = '';
             reportSection.classList.add('hidden');
             resetBtn.classList.add('hidden');
+            exportBtn.classList.add('hidden'); // 隐藏导出按钮
             analyzeBtn.classList.remove('hidden');
             progressSpinner.style.display = 'block';
             progressFill.style.width = '0%';
+            currentReportData = null; // 清空报告数据
+        });
+
+        // 导出 Excel
+        exportBtn.addEventListener('click', async () => {
+            if (!currentReportData) {
+                alert('没有可导出的报告数据');
+                return;
+            }
+
+            try {
+                exportBtn.disabled = true;
+                exportBtn.textContent = '📥 导出中...';
+
+                // 发送导出请求
+                const response = await fetch('http://localhost:8000/api/export/excel', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(currentReportData)
+                });
+
+                if (!response.ok) {
+                    throw new Error('导出失败');
+                }
+
+                // 获取文件名
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = '小红书舆情分析报告.xlsx';
+                if (contentDisposition) {
+                    const filenameMatch = contentDisposition.match(/filename\*?=(?:UTF-8'')?([^;]+)/);
+                    if (filenameMatch) {
+                        filename = decodeURIComponent(filenameMatch[1]);
+                    }
+                }
+
+                // 下载文件
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+                exportBtn.disabled = false;
+                exportBtn.textContent = '📥 导出 Excel';
+
+                // 显示成功提示
+                alert('✅ Excel 文件已成功导出！');
+
+            } catch (error) {
+                console.error('导出失败:', error);
+                exportBtn.disabled = false;
+                exportBtn.textContent = '📥 导出 Excel';
+                alert('❌ 导出失败，请重试');
+            }
         });
 
         // 渲染报告

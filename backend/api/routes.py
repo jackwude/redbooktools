@@ -2,6 +2,7 @@
 API 路由定义
 """
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi.responses import StreamingResponse
 from typing import Optional
 import logging
 
@@ -9,6 +10,7 @@ from schema.response import AnalyzeResponse, ErrorResponse, AnalysisReport
 from services.image_analyzer import get_image_analyzer
 from services.sentiment_analyzer import get_sentiment_analyzer
 from services.report_generator import get_report_generator
+from services.excel_exporter import get_excel_exporter
 
 logger = logging.getLogger(__name__)
 
@@ -133,3 +135,44 @@ async def health_check():
     健康检查接口
     """
     return {"status": "healthy", "service": "sentiment-analysis"}
+
+
+@router.post("/export/excel")
+async def export_to_excel(report: AnalysisReport):
+    """
+    导出分析报告为 Excel 文件
+    
+    - **report**: 分析报告数据对象
+    
+    返回 Excel 文件供下载
+    """
+    try:
+        # 获取 Excel 导出器
+        exporter = get_excel_exporter()
+        
+        # 将报告数据转换为字典
+        report_dict = report.model_dump() if hasattr(report, 'model_dump') else report.dict()
+        
+        # 生成 Excel 文件
+        excel_file = await exporter.export_analysis_report(report_dict)
+        
+        # 生成文件名
+        from datetime import datetime
+        filename = f"小红书舆情分析报告_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        
+        # 返回文件流
+        return StreamingResponse(
+            excel_file,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{filename}",
+                "Access-Control-Expose-Headers": "Content-Disposition"
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Excel 导出失败: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Excel 导出失败: {str(e)}"
+        )
