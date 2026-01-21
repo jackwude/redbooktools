@@ -28,3 +28,4 @@ yarn-error.log*
 # Test
 *.log
 test_api.py
+diagnostic.py
