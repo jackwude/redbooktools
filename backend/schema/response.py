@@ -13,6 +13,28 @@ class SentimentType(str, Enum):
     NEUTRAL = "neutral"
 
 
+class CommentReply(BaseModel):
+    """
+    评论回复信息
+    """
+    author: str = Field(description="回复者昵称")
+    content: str = Field(description="回复内容")
+
+
+class CommentInfo(BaseModel):
+    """
+    评论信息
+    """
+    author: str = Field(description="评论者昵称")
+    content: str = Field(description="评论内容")
+    likes: Optional[int] = Field(default=None, description="评论点赞数")
+    time: Optional[str] = Field(default=None, description="评论时间")
+    is_author_reply: bool = Field(default=False, description="是否为作者回复")
+    replies: List[CommentReply] = Field(default_factory=list, description="回复列表")
+    post_title: Optional[str] = Field(default=None, description="所属帖子标题")
+    screenshot_index: Optional[int] = Field(default=None, description="来源截图序号")
+
+
 class PostInfo(BaseModel):
     """
     小红书帖子信息
@@ -28,6 +50,7 @@ class PostInfo(BaseModel):
         description="情感得分，-1 到 1 之间"
     )
     keywords: List[str] = Field(default_factory=list, description="关键词列表")
+
 
 
 class SentimentDistribution(BaseModel):
@@ -67,14 +90,17 @@ class AnalysisReport(BaseModel):
     analysis_id: str = Field(description="分析任务 ID")
     search_keyword: Optional[str] = Field(default=None, description="搜索关键词")
     total_posts: int = Field(description="识别的帖子总数")
+    total_comments: int = Field(default=0, description="识别的评论总数")
     sentiment_distribution: SentimentDistribution = Field(description="情感分布")
     top_keywords: List[KeywordInfo] = Field(description="热门关键词")
     posts: List[PostInfo] = Field(description="帖子详情列表")
+    comments: List[CommentInfo] = Field(default_factory=list, description="评论列表")
     risk_alerts: List[RiskAlert] = Field(default_factory=list, description="风险预警")
     summary: str = Field(description="舆情分析总结")
     insights: List[str] = Field(default_factory=list, description="关键洞察")
     recommendations: List[str] = Field(default_factory=list, description="建议措施")
     created_at: str = Field(description="报告生成时间")
+
 
 
 class AnalyzeResponse(BaseModel):

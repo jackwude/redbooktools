@@ -68,16 +68,18 @@ export type AnalysisStatus = 'idle' | 'uploading' | 'analyzing' | 'complete' | '
 
 /**
  * 上传图片并进行舆情分析
- * @param imageFile 图片文件
+ * @param files 图片文件列表
  * @param searchKeyword 搜索关键词（可选）
  * @returns 分析结果
  */
 export async function analyzeImage(
-    imageFile: File,
+    files: File[],
     searchKeyword?: string
 ): Promise<AnalyzeResponse> {
     const formData = new FormData();
-    formData.append('image', imageFile);
+    files.forEach(file => {
+        formData.append('images', file);
+    });
 
     if (searchKeyword) {
         formData.append('search_keyword', searchKeyword);
@@ -89,8 +91,23 @@ export async function analyzeImage(
     });
 
     if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || '分析请求失败');
+        let errorMessage = '分析请求失败';
+        try {
+            const error = await response.json();
+            if (typeof error.detail === 'string') {
+                errorMessage = error.detail;
+            } else if (typeof error.message === 'string') {
+                errorMessage = error.message;
+            } else if (Array.isArray(error.detail)) {
+                // 处理 FastAPI/Pydantic 的验证错误数组
+                errorMessage = error.detail.map((e: any) => e.msg).join('; ');
+            } else if (typeof error === 'object') {
+                errorMessage = JSON.stringify(error);
+            }
+        } catch (e) {
+            errorMessage = `请求失败 (${response.status} ${response.statusText})`;
+        }
+        throw new Error(errorMessage);
     }
 
     return response.json();

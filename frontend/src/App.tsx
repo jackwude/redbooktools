@@ -13,23 +13,33 @@ import {
  */
 function App() {
     // 状态管理
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [searchKeyword, setSearchKeyword] = useState('');
     const [status, setStatus] = useState<AnalysisStatus>('idle');
     const [errorMessage, setErrorMessage] = useState<string>('');
     const [report, setReport] = useState<AnalysisReport | null>(null);
 
-    // 处理文件选择
-    const handleFileSelect = useCallback((file: File) => {
-        setSelectedFile(file);
+    // 处理文件选择（添加新文件）
+    const handleFilesSelect = useCallback((newFiles: File[]) => {
+        setSelectedFiles(prev => [...prev, ...newFiles]);
         setReport(null);
         setStatus('idle');
         setErrorMessage('');
     }, []);
 
-    // 清除文件
-    const handleClearFile = useCallback(() => {
-        setSelectedFile(null);
+    // 移除单个文件
+    const handleRemoveFile = useCallback((index: number) => {
+        setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+        // 如果文件全部移除了，重置状态
+        if (selectedFiles.length <= 1) { // 这里 length 是移除前的
+            setReport(null);
+            setStatus('idle');
+        }
+    }, [selectedFiles.length]);
+
+    // 清除所有文件
+    const handleClearFiles = useCallback(() => {
+        setSelectedFiles([]);
         setReport(null);
         setStatus('idle');
         setErrorMessage('');
@@ -37,7 +47,7 @@ function App() {
 
     // 开始分析
     const handleAnalyze = useCallback(async () => {
-        if (!selectedFile) {
+        if (selectedFiles.length === 0) {
             alert('请先上传截图');
             return;
         }
@@ -53,7 +63,7 @@ function App() {
 
             // 调用分析 API
             const response = await analyzeImage(
-                selectedFile,
+                selectedFiles,
                 searchKeyword || undefined
             );
 
@@ -70,11 +80,11 @@ function App() {
                 error instanceof Error ? error.message : '未知错误，请重试'
             );
         }
-    }, [selectedFile, searchKeyword]);
+    }, [selectedFiles, searchKeyword]);
 
     // 重新分析
     const handleReset = useCallback(() => {
-        setSelectedFile(null);
+        setSelectedFiles([]);
         setSearchKeyword('');
         setStatus('idle');
         setErrorMessage('');
@@ -100,10 +110,10 @@ function App() {
             <main>
                 {/* 上传区域 */}
                 <ImageUploader
-                    onFileSelect={handleFileSelect}
+                    onFilesSelect={handleFilesSelect}
                     disabled={isProcessing}
-                    selectedFile={selectedFile}
-                    onClear={handleClearFile}
+                    selectedFiles={selectedFiles}
+                    onRemoveFile={handleRemoveFile}
                 />
 
                 {/* 搜索关键词输入（可选） */}
@@ -145,7 +155,7 @@ function App() {
                         <button
                             className="btn btn-primary"
                             onClick={handleAnalyze}
-                            disabled={!selectedFile || isProcessing}
+                            disabled={selectedFiles.length === 0 || isProcessing}
                         >
                             {isProcessing ? (
                                 <>

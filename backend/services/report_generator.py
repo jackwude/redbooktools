@@ -13,6 +13,7 @@ from typing import List, Dict, Any, Optional
 from schema.response import (
     AnalysisReport,
     PostInfo,
+    CommentInfo,
     SentimentDistribution,
     KeywordInfo,
     RiskAlert,
@@ -283,6 +284,7 @@ class ReportGenerator:
         posts: List[PostInfo],
         keywords_data: List[Dict[str, Any]],
         risk_alerts_data: List[Dict[str, Any]],
+        comments_data: Optional[List[Dict[str, Any]]] = None,
         search_keyword: Optional[str] = None
     ) -> AnalysisReport:
         """
@@ -292,6 +294,7 @@ class ReportGenerator:
             posts: 帖子信息列表
             keywords_data: 关键词原始数据
             risk_alerts_data: 风险预警原始数据
+            comments_data: 评论原始数据（可选）
             search_keyword: 搜索关键词
             
         Returns:
@@ -307,6 +310,36 @@ class ReportGenerator:
         keywords = self.parse_keywords(keywords_data)
         risk_alerts = self.parse_risk_alerts(risk_alerts_data)
         
+        # 解析评论数据
+        comments = []
+        if comments_data:
+            for comment_dict in comments_data:
+                try:
+                    # 处理回复数据
+                    replies_data = comment_dict.get("replies", [])
+                    from schema.response import CommentReply
+                    replies = [
+                        CommentReply(
+                            author=reply.get("author", ""),
+                            content=reply.get("content", "")
+                        )
+                        for reply in replies_data
+                    ]
+                    
+                    comments.append(CommentInfo(
+                        author=comment_dict.get("author", ""),
+                        content=comment_dict.get("content", ""),
+                        likes=comment_dict.get("likes"),
+                        time=comment_dict.get("time"),
+                        is_author_reply=comment_dict.get("is_author_reply", False),
+                        replies=replies,
+                        post_title=comment_dict.get("post_title"),
+                        screenshot_index=comment_dict.get("screenshot_index")
+                    ))
+                except Exception as e:
+                    logger.warning(f"解析评论数据失败: {e}")
+                    continue
+        
         # 生成洞察和建议
         insights_data = await self.generate_insights(
             posts, sentiment_dist, keywords, risk_alerts
@@ -317,9 +350,11 @@ class ReportGenerator:
             analysis_id=analysis_id,
             search_keyword=search_keyword,
             total_posts=len(posts),
+            total_comments=len(comments),
             sentiment_distribution=sentiment_dist,
             top_keywords=keywords,
             posts=posts,
+            comments=comments,
             risk_alerts=risk_alerts,
             summary=insights_data.get("summary", ""),
             insights=insights_data.get("insights", []),
@@ -327,8 +362,9 @@ class ReportGenerator:
             created_at=datetime.now().isoformat()
         )
         
-        logger.info(f"报告生成完成，ID: {analysis_id}")
+        logger.info(f"报告生成完成，ID: {analysis_id}，包含 {len(posts)} 个帖子和 {len(comments)} 条评论")
         return report
+
 
 
 # 全局生成器实例

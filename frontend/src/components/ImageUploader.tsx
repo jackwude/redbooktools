@@ -2,51 +2,72 @@ import { useState, useCallback, DragEvent, ChangeEvent } from 'react';
 
 interface ImageUploaderProps {
     /** 文件选择回调 */
-    onFileSelect: (file: File) => void;
+    onFilesSelect: (files: File[]) => void;
     /** 是否禁用 */
     disabled?: boolean;
-    /** 当前选中的文件 */
-    selectedFile?: File | null;
-    /** 清除文件回调 */
-    onClear?: () => void;
+    /** 当前选中的文件列表 */
+    selectedFiles?: File[];
+    /** 清除/移除文件回调 */
+    onRemoveFile?: (index: number) => void;
 }
 
 /**
  * 图片上传组件
- * 支持拖拽上传和点击选择
+ * 支持拖拽上传和点击选择（多文件）
  */
 export function ImageUploader({
-    onFileSelect,
+    onFilesSelect,
     disabled = false,
-    selectedFile,
-    onClear,
+    selectedFiles = [],
+    onRemoveFile,
 }: ImageUploaderProps) {
     const [isDragOver, setIsDragOver] = useState(false);
-    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
     // 处理文件选择
-    const handleFile = useCallback(
-        (file: File) => {
-            // 验证文件类型
+    const handleFiles = useCallback(
+        (files: FileList | File[]) => {
+            const newFiles: File[] = [];
             const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
-            if (!validTypes.includes(file.type)) {
-                alert('请上传 PNG、JPG 或 WebP 格式的图片');
+
+            // 当前已有文件数量
+            const currentCount = selectedFiles.length;
+            let addedCount = 0;
+
+            Array.from(files).forEach((file) => {
+                // 检查总数限制
+                if (currentCount + addedCount >= 20) {
+                    return;
+                }
+
+                if (!validTypes.includes(file.type)) {
+                    return; // 跳过不支持的格式
+                }
+
+                if (file.size > 10 * 1024 * 1024) {
+                    return; // 跳过过大的文件
+                }
+
+                // 简单的排重（文件名+大小）
+                const isDuplicate = selectedFiles.some(
+                    existing => existing.name === file.name && existing.size === file.size
+                );
+
+                if (!isDuplicate) {
+                    newFiles.push(file);
+                    addedCount++;
+                }
+            });
+
+            if (files.length > 0 && newFiles.length === 0 && currentCount >= 20) {
+                alert('最多只能上传 20 张图片');
                 return;
             }
 
-            // 验证文件大小（最大 10MB）
-            if (file.size > 10 * 1024 * 1024) {
-                alert('图片大小不能超过 10MB');
-                return;
+            if (newFiles.length > 0) {
+                onFilesSelect(newFiles);
             }
-
-            // 生成预览 URL
-            const url = URL.createObjectURL(file);
-            setPreviewUrl(url);
-
-            onFileSelect(file);
         },
-        [onFileSelect]
+        [onFilesSelect, selectedFiles]
     );
 
     // 拖拽事件处理
@@ -71,10 +92,10 @@ export function ImageUploader({
 
             const files = e.dataTransfer.files;
             if (files.length > 0) {
-                handleFile(files[0]);
+                handleFiles(files);
             }
         },
-        [disabled, handleFile]
+        [disabled, handleFiles]
     );
 
     // 点击选择文件
@@ -82,25 +103,18 @@ export function ImageUploader({
         (e: ChangeEvent<HTMLInputElement>) => {
             const files = e.target.files;
             if (files && files.length > 0) {
-                handleFile(files[0]);
+                handleFiles(files);
             }
+            // 重置 input 以允许重复选择相同文件
+            e.target.value = '';
         },
-        [handleFile]
+        [handleFiles]
     );
-
-    // 清除选中的文件
-    const handleClear = useCallback(() => {
-        if (previewUrl) {
-            URL.revokeObjectURL(previewUrl);
-        }
-        setPreviewUrl(null);
-        onClear?.();
-    }, [previewUrl, onClear]);
 
     return (
         <div className="card">
             <h3 className="card-title">
-                📤 上传小红书截图
+                📤 上传小红书截图 ({selectedFiles.length}/20)
             </h3>
 
             {/* 上传区域 */}
@@ -111,50 +125,61 @@ export function ImageUploader({
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 onClick={() => {
-                    if (!disabled && !selectedFile) {
+                    if (!disabled && selectedFiles.length < 20) {
                         document.getElementById('file-input')?.click();
+                    } else if (selectedFiles.length >= 20) {
+                        alert('已达到最大上传数量限制');
                     }
                 }}
-                style={{ cursor: disabled ? 'not-allowed' : 'pointer' }}
+                style={{ cursor: disabled || selectedFiles.length >= 20 ? 'not-allowed' : 'pointer' }}
             >
-                {/* 隐藏的文件输入 */}
                 <input
                     id="file-input"
                     type="file"
                     accept="image/png,image/jpeg,image/jpg,image/webp"
                     onChange={handleInputChange}
                     style={{ display: 'none' }}
-                    disabled={disabled}
+                    disabled={disabled || selectedFiles.length >= 20}
+                    multiple // 支持多选
                 />
 
-                {/* 预览或提示 */}
-                {previewUrl && selectedFile ? (
-                    <div className="upload-preview">
-                        <img src={previewUrl} alt="预览" />
-                        {!disabled && (
-                            <button
-                                className="upload-preview-remove"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleClear();
-                                }}
-                                title="移除图片"
-                            >
-                                ✕
-                            </button>
+                {selectedFiles.length > 0 ? (
+                    <div className="upload-preview-grid">
+                        {selectedFiles.map((file, index) => (
+                            <div key={`${file.name}-${index}`} className="preview-item">
+                                <img
+                                    src={URL.createObjectURL(file)}
+                                    alt={file.name}
+                                    onLoad={(e) => URL.revokeObjectURL((e.target as HTMLImageElement).src)}
+                                />
+                                {!disabled && (
+                                    <button
+                                        className="preview-remove"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onRemoveFile?.(index);
+                                        }}
+                                        title="移除图片"
+                                    >
+                                        ✕
+                                    </button>
+                                )}
+                            </div>
+                        ))}
+                        {selectedFiles.length < 20 && (
+                            <div className="preview-add-more">
+                                <span>+</span>
+                            </div>
                         )}
-                        <p style={{ marginTop: '1rem', color: 'var(--color-text-secondary)' }}>
-                            {selectedFile.name}
-                        </p>
                     </div>
                 ) : (
                     <>
                         <div className="upload-zone-icon">📷</div>
                         <div className="upload-zone-title">
-                            {isDragOver ? '松开鼠标上传图片' : '拖拽或点击上传截图'}
+                            {isDragOver ? '松开鼠标添加图片' : '拖拽或点击上传截图'}
                         </div>
                         <div className="upload-zone-hint">
-                            支持 PNG、JPG、WebP 格式，最大 10MB
+                            最多 20 张，支持 PNG、JPG、WebP
                         </div>
                     </>
                 )}

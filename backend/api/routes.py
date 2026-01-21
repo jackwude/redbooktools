@@ -26,7 +26,7 @@ router = APIRouter(prefix="/api", tags=["analysis"])
     }
 )
 async def analyze_screenshot(
-    images: list[UploadFile] = File(..., description="小红书搜索结果截图（最多10张）"),
+    images: list[UploadFile] = File(..., description="小红书搜索结果截图（最多20张）"),
     search_keyword: Optional[str] = Form(
         default=None, 
         description="搜索关键词（可选）"
@@ -35,7 +35,7 @@ async def analyze_screenshot(
     """
     分析小红书截图并生成舆情报告
     
-    - **images**: 小红书搜索结果页面的截图文件列表（PNG/JPG），最多10张
+    - **images**: 小红书搜索结果页面的截图文件列表（PNG/JPG），最多20张
     - **search_keyword**: 可选的搜索关键词，用于辅助分析
     
     返回完整的舆情分析报告，包括：
@@ -46,10 +46,10 @@ async def analyze_screenshot(
     - 分析洞察和建议
     """
     # 验证图片数量
-    if len(images) > 10:
+    if len(images) > 20:
         raise HTTPException(
             status_code=400,
-            detail="最多只能上传 10 张图片"
+            detail="最多只能上传 20 张图片"
         )
     
     if len(images) == 0:
@@ -68,6 +68,7 @@ async def analyze_screenshot(
     
     try:
         all_posts_data = []
+        all_comments_data = []
         
         # 逐个处理每张图片
         for idx, image in enumerate(images):
@@ -75,19 +76,66 @@ async def analyze_screenshot(
             image_data = await image.read()
             logger.info(f"处理第 {idx+1}/{len(images)} 张图片: {image.filename}, 大小: {len(image_data)} bytes")
             
-            # Step 1: 图像识别 - 提取帖子信息
+            # Step 1: 图像识别 - 提取帖子信息和评论
             image_analyzer = get_image_analyzer()
             extraction_result = await image_analyzer.analyze_image(
                 image_data, 
                 mime_type=image.content_type
             )
             
-            posts_data = extraction_result.get("posts", [])
-            logger.info(f"从第 {idx+1} 张图片中识别到 {len(posts_data)} 个帖子")
+            screenshot_type = extraction_result.get("screenshot_type", "unknown")
+            logger.info(f"第 {idx+1} 张图片识别为: {screenshot_type}")
             
-            all_posts_data.extend(posts_data)
+            # 处理新的数据结构
+            if screenshot_type == "detail_view":
+                # 详情页截图，包含帖子内容和评论
+                post_content = extraction_result.get("post_content")
+                comments = extraction_result.get("comments", [])
+                
+                if post_content:
+                    # 将帖子内容转换为旧格式以兼容现有分析流程
+                    post_data = {
+                        "title": post_content.get("title", ""),
+                        "content": post_content.get("content", ""),
+                        "author": post_content.get("author", ""),
+                        "publish_time": post_content.get("publish_time"),
+                        "likes": post_content.get("likes"),
+                        "collects": post_content.get("collects"),
+                        "comments_count": post_content.get("comments_count"),
+                        "tags": post_content.get("tags", []),
+                        "screenshot_index": idx + 1,
+                        "has_comments": len(comments) > 0
+                    }
+                    all_posts_data.append(post_data)
+                    
+                    # 保存评论数据（附加帖子标题以便关联）
+                    for comment in comments:
+                        comment["post_title"] = post_content.get("title", "")
+                        comment["screenshot_index"] = idx + 1
+                    all_comments_data.extend(comments)
+                    
+                    logger.info(f"从第 {idx+1} 张图片中识别到 1 个帖子和 {len(comments)} 条评论")
+                else:
+                    logger.warning(f"第 {idx+1} 张图片未能识别到帖子内容")
+                    
+            elif screenshot_type == "feed_view":
+                # 信息流截图，可能包含多个帖子封面
+                # 这种情况下保持兼容旧的 posts 数组格式
+                posts_data = extraction_result.get("posts", [])
+                for post in posts_data:
+                    post["screenshot_index"] = idx + 1
+                all_posts_data.extend(posts_data)
+                logger.info(f"从第 {idx+1} 张图片（信息流）中识别到 {len(posts_data)} 个帖子封面")
+            else:
+                # 未知类型或旧格式，尝试兼容处理
+                posts_data = extraction_result.get("posts", [])
+                if posts_data:
+                    for post in posts_data:
+                        post["screenshot_index"] = idx + 1
+                    all_posts_data.extend(posts_data)
+                    logger.info(f"从第 {idx+1} 张图片中识别到 {len(posts_data)} 个帖子")
         
-        logger.info(f"共识别到 {len(all_posts_data)} 个帖子")
+        logger.info(f"共识别到 {len(all_posts_data)} 个帖子，{len(all_comments_data)} 条评论")
         
         if not all_posts_data:
             return AnalyzeResponse(
@@ -112,6 +160,7 @@ async def analyze_screenshot(
             posts=analyzed_posts,
             keywords_data=sentiment_result.get("top_keywords", []),
             risk_alerts_data=sentiment_result.get("risk_alerts", []),
+            comments_data=all_comments_data,
             search_keyword=search_keyword
         )
         
