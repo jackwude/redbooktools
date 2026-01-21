@@ -158,14 +158,17 @@ async def export_to_excel(report: AnalysisReport):
         
         # 生成文件名
         from datetime import datetime
+        from urllib.parse import quote
+        
         filename = f"小红书舆情分析报告_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        encoded_filename = quote(filename)
         
         # 返回文件流
         return StreamingResponse(
             excel_file,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={
-                "Content-Disposition": f"attachment; filename*=UTF-8''{filename}",
+                "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}",
                 "Access-Control-Expose-Headers": "Content-Disposition"
             }
         )
